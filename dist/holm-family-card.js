@@ -1,4 +1,4 @@
-/* holm-family-card — https://github.com/kaaribou/holm-family-card — licence MIT — v1.0.0 */
+/* holm-family-card — https://github.com/kaaribou/holm-family-card — licence MIT — v1.0.1 */
 // holm-family-card — qui est où : présence, lieu, distance, batterie, source (GPS / Wi-Fi)
 // Tout est détecté à partir des entités « person » : traqueurs, batterie et adresse du téléphone,
 // capteurs de l'intégration Proximité (distance, sens du déplacement).
@@ -12,6 +12,26 @@
 //     battery: sensor.xxx   address: sensor.xxx   distance: sensor.xxx   direction: sensor.xxx   (optionnels, sinon auto)
 //     wifi: [device_tracker.xxx]   (traqueurs du routeur : « à la maison » dès que le téléphone est sur le Wi-Fi)
 (() => {
+// Garde la position de défilement pendant un nouveau rendu complet de la carte (iPhone / iPad : WebKit n'a pas de
+// « scroll anchoring » et la page remontait d'un coup). On fige la hauteur de la carte et on remet le défilement en place.
+const keepScroll = (host, fn) => {
+  const saved = [];
+  let n = host;
+  while (n) {
+    n = n.assignedSlot || n.parentNode || n.host;
+    if (n && n.nodeType === 1 && n.scrollHeight > n.clientHeight) saved.push([n, n.scrollTop]);
+  }
+  const se = document.scrollingElement;
+  if (se) saved.push([se, se.scrollTop]);
+  const h = host.offsetHeight;
+  if (h) host.style.minHeight = `${h}px`;
+  try { return fn(); } finally {
+    const restore = () => saved.forEach(([el, t]) => { if (Math.abs(el.scrollTop - t) > 1) el.scrollTop = t; });
+    restore();
+    requestAnimationFrame(() => { restore(); host.style.minHeight = ""; requestAnimationFrame(restore); });
+    setTimeout(() => { host.style.minHeight = ""; }, 500);   // page en arrière-plan : pas d'image affichée, donc pas de requestAnimationFrame
+  }
+};
 const fr = (v, d = 1) => Number(v).toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
 const PAL = ["#0abfbf", "#e05a8a", "#e3a21a", "#9b6fd6", "#4a90d9", "#1fce8a"];
 const HOME = "#1fce8a";
@@ -120,6 +140,9 @@ class HolmFamilyCard extends HTMLElement {
     };
   }
   _render() {
+    return keepScroll(this, () => this._renderNow());
+  }
+  _renderNow() {
     if (!this.shadowRoot || !this._c || !this._hass) return;
     const c = this._c, homeZ = this._homeZones();
     const P = c.persons.map((p, i) => this._person(p, i, homeZ));
@@ -254,4 +277,4 @@ window.customCards = window.customCards || [];
 window.customCards.push({ type: "holm-family-card", name: "HOLM – La famille", description: "Présence, lieu, distance, batterie et source (GPS / Wi-Fi) de chaque membre de la famille", preview: false });
 })();
 
-console.info("%c HOLM-FAMILY %c 1.0.0 ", "background:#1fce8a;color:#111;border-radius:3px 0 0 3px", "background:#123;color:#fff;border-radius:0 3px 3px 0");
+console.info("%c HOLM-FAMILY %c 1.0.1 ", "background:#1fce8a;color:#111;border-radius:3px 0 0 3px", "background:#123;color:#fff;border-radius:0 3px 3px 0");
