@@ -1,4 +1,4 @@
-/* holm-family-card — https://github.com/kaaribou/holm-family-card — licence MIT — v1.0.1 */
+/* holm-family-card — https://github.com/kaaribou/holm-family-card — licence MIT — v1.1.0 */
 // holm-family-card — qui est où : présence, lieu, distance, batterie, source (GPS / Wi-Fi)
 // Tout est détecté à partir des entités « person » : traqueurs, batterie et adresse du téléphone,
 // capteurs de l'intégration Proximité (distance, sens du déplacement).
@@ -12,6 +12,89 @@
 //     battery: sensor.xxx   address: sensor.xxx   distance: sensor.xxx   direction: sensor.xxx   (optionnels, sinon auto)
 //     wifi: [device_tracker.xxx]   (traqueurs du routeur : « à la maison » dès que le téléphone est sur le Wi-Fi)
 (() => {
+  // ---- HOLM i18n : textes écrits en français, traduits à l'affichage (en, de, es, it, nl, pt, pl) ----
+  // Langue : option `language` de la carte, sinon celle du profil Home Assistant ; anglais si la langue n'est pas traduite.
+  const HOLM_LANGS = ["en", "de", "es", "it", "nl", "pt", "pl"];
+  const LANG_NAMES = { fr: "Français", en: "English", de: "Deutsch", es: "Español", it: "Italiano", nl: "Nederlands", pt: "Português", pl: "Polski" };
+  const LOCALES = { fr: "fr-FR", en: "en-GB", de: "de-DE", es: "es-ES", it: "it-IT", nl: "nl-NL", pt: "pt-PT", pl: "pl-PL" };
+  const I18N = {
+    "Automatique (profil)": ["Automatic (profile)", "Automatisch (Profil)", "Automático (perfil)", "Automatica (profilo)", "Automatisch (profiel)", "Automático (perfil)", "Automatycznie (profil)"],
+    "Langue": ["Language", "Sprache", "Idioma", "Lingua", "Taal", "Idioma", "Język"],
+    "Titre": ["Title", "Titel", "Título", "Titolo", "Titel", "Título", "Tytuł"],
+    "Titre (optionnel)": ["Title (optional)", "Titel (optional)", "Título (opcional)", "Titolo (facoltativo)", "Titel (optioneel)", "Título (opcional)", "Tytuł (opcjonalnie)"],
+    "Nom": ["Name", "Name", "Nombre", "Nome", "Naam", "Nome", "Nazwa"],
+    "Nom affiché": ["Display name", "Anzeigename", "Nombre mostrado", "Nome visualizzato", "Weergavenaam", "Nome apresentado", "Wyświetlana nazwa"],
+    "Icône": ["Icon", "Symbol", "Icono", "Icona", "Pictogram", "Ícone", "Ikona"],
+    "Couleur": ["Colour", "Farbe", "Color", "Colore", "Kleur", "Cor", "Kolor"],
+    "Couleurs": ["Colours", "Farben", "Colores", "Colori", "Kleuren", "Cores", "Kolory"],
+    "Entité": ["Entity", "Entität", "Entidad", "Entità", "Entiteit", "Entidade", "Encja"],
+    "Entités": ["Entities", "Entitäten", "Entidades", "Entità", "Entiteiten", "Entidades", "Encje"],
+    "Chargement…": ["Loading…", "Wird geladen…", "Cargando…", "Caricamento…", "Laden…", "A carregar…", "Ładowanie…"],
+    "Erreur": ["Error", "Fehler", "Error", "Errore", "Fout", "Erro", "Błąd"],
+    "Fermer": ["Close", "Schließen", "Cerrar", "Chiudi", "Sluiten", "Fechar", "Zamknij"],
+    "Annuler": ["Cancel", "Abbrechen", "Cancelar", "Annulla", "Annuleren", "Cancelar", "Anuluj"],
+    "Enregistrer": ["Save", "Speichern", "Guardar", "Salva", "Opslaan", "Guardar", "Zapisz"],
+    "Supprimer": ["Delete", "Löschen", "Eliminar", "Elimina", "Verwijderen", "Eliminar", "Usuń"],
+    "Ajouter": ["Add", "Hinzufügen", "Añadir", "Aggiungi", "Toevoegen", "Adicionar", "Dodaj"],
+    "Monter": ["Move up", "Nach oben", "Subir", "Sposta su", "Omhoog", "Mover para cima", "W górę"],
+    "Descendre": ["Move down", "Nach unten", "Bajar", "Sposta giù", "Omlaag", "Mover para baixo", "W dół"],
+    "Afficher le cadre de la carte": ["Show the card frame", "Kartenrahmen anzeigen", "Mostrar el marco de la tarjeta", "Mostra la cornice della scheda", "Kaartkader tonen", "Mostrar a moldura do cartão", "Pokaż ramkę karty"],
+    "Indisponible": ["Unavailable", "Nicht verfügbar", "No disponible", "Non disponibile", "Niet beschikbaar", "Indisponível", "Niedostępne"],
+    "Aujourd'hui": ["Today", "Heute", "Hoy", "Oggi", "Vandaag", "Hoje", "Dziś"],
+    "Hier": ["Yesterday", "Gestern", "Ayer", "Ieri", "Gisteren", "Ontem", "Wczoraj"],
+    "Demain": ["Tomorrow", "Morgen", "Mañana", "Domani", "Morgen", "Amanhã", "Jutro"],
+    "Batterie": ["Battery", "Batterie", "Batería", "Batteria", "Batterij", "Bateria", "Bateria"],
+    "Aucune donnée sur cette période.": ["No data for this period.", "Keine Daten für diesen Zeitraum.", "No hay datos en este periodo.", "Nessun dato per questo periodo.", "Geen gegevens voor deze periode.", "Sem dados neste período.", "Brak danych w tym okresie."],
+    "à l'instant": ["just now", "gerade eben", "ahora mismo", "proprio ora", "zojuist", "agora mesmo", "przed chwilą"],
+    "il y a {n} min": ["{n} min ago", "vor {n} Min.", "hace {n} min", "{n} min fa", "{n} min geleden", "há {n} min", "{n} min temu"],
+    "il y a {n} h": ["{n} h ago", "vor {n} Std.", "hace {n} h", "{n} h fa", "{n} u geleden", "há {n} h", "{n} godz. temu"],
+    "il y a {n} j": ["{n} d ago", "vor {n} T.", "hace {n} d", "{n} g fa", "{n} d geleden", "há {n} d", "{n} dni temu"],
+    "La famille": ["The family", "Die Familie", "La familia", "La famiglia", "Het gezin", "A família", "Rodzina"],
+    "il y a {n} h{m}": ["{n} h{m} ago", "vor {n} Std.{m}", "hace {n} h{m}", "{n} h{m} fa", "{n} u{m} geleden", "há {n} h{m}", "{n} godz.{m} temu"],
+    "depuis {t}": ["since {t}", "seit {t}", "desde las {t}", "dalle {t}", "sinds {t}", "desde as {t}", "od {t}"],
+    "depuis hier {t}": ["since yesterday {t}", "seit gestern {t}", "desde ayer a las {t}", "da ieri alle {t}", "sinds gisteren {t}", "desde ontem às {t}", "od wczoraj {t}"],
+    "depuis le {d}": ["since {d}", "seit dem {d}", "desde el {d}", "dal {d}", "sinds {d}", "desde {d}", "od {d}"],
+    "se rapproche": ["getting closer", "kommt näher", "se acerca", "si avvicina", "komt dichterbij", "aproxima-se", "zbliża się"],
+    "s'éloigne": ["moving away", "entfernt sich", "se aleja", "si allontana", "gaat verder weg", "afasta-se", "oddala się"],
+    "immobile": ["stationary", "unbewegt", "inmóvil", "fermo", "stilstaand", "parado", "w miejscu"],
+    "arrivé(e)": ["arrived", "angekommen", "ha llegado", "arrivato/a", "aangekomen", "chegou", "na miejscu"],
+    "à la maison": ["at home", "zu Hause", "en casa", "a casa", "thuis", "em casa", "w domu"],
+    "en déplacement": ["away", "unterwegs", "fuera", "fuori casa", "onderweg", "fora", "poza domem"],
+    "À la maison": ["At home", "Zu Hause", "En casa", "A casa", "Thuis", "Em casa", "W domu"],
+    "En déplacement": ["Away", "Unterwegs", "Fuera", "Fuori casa", "Onderweg", "Fora", "Poza domem"],
+    "Position inconnue": ["Unknown location", "Standort unbekannt", "Ubicación desconocida", "Posizione sconosciuta", "Locatie onbekend", "Localização desconhecida", "Nieznana lokalizacja"],
+    "Entité introuvable": ["Entity not found", "Entität nicht gefunden", "Entidad no encontrada", "Entità non trovata", "Entiteit niet gevonden", "Entidade não encontrada", "Nie znaleziono encji"],
+    "Wi-Fi de la maison": ["Home Wi-Fi", "WLAN zu Hause", "Wi-Fi de casa", "Wi-Fi di casa", "Wifi thuis", "Wi-Fi de casa", "Wi-Fi w domu"],
+    "GPS {x}": ["GPS {x}", "GPS {x}", "GPS {x}", "GPS {x}", "GPS {x}", "GPS {x}", "GPS {x}"],
+    "Dernière position : {p}, {a} — suivi coupé": ["Last location: {p}, {a} — tracking off", "Letzter Standort: {p}, {a} — Ortung aus", "Última ubicación: {p}, {a} — seguimiento desactivado", "Ultima posizione: {p}, {a} — tracciamento disattivato", "Laatste locatie: {p}, {a} — volgen uit", "Última localização: {p}, {a} — seguimento desligado", "Ostatnia lokalizacja: {p}, {a} — śledzenie wyłączone"],
+    "L'application Home Assistant du téléphone ne répond plus": ["The phone's Home Assistant app is not responding", "Die Home-Assistant-App des Telefons antwortet nicht mehr", "La aplicación Home Assistant del teléfono no responde", "L'app Home Assistant del telefono non risponde", "De Home Assistant-app van de telefoon reageert niet meer", "A aplicação Home Assistant do telemóvel não responde", "Aplikacja Home Assistant w telefonie nie odpowiada"],
+    "{n} à la maison": ["{n} at home", "{n} zu Hause", "{n} en casa", "{n} a casa", "{n} thuis", "{n} em casa", "{n} w domu"],
+    "{n} dehors": ["{n} out", "{n} unterwegs", "{n} fuera", "{n} fuori", "{n} weg", "{n} fora", "{n} poza domem"],
+    "Position trop ancienne après (heures)": ["Location too old after (hours)", "Standort veraltet nach (Stunden)", "Ubicación demasiado antigua tras (horas)", "Posizione troppo vecchia dopo (ore)", "Locatie te oud na (uren)", "Localização demasiado antiga após (horas)", "Lokalizacja nieaktualna po (godz.)"],
+    "Afficher l'adresse": ["Show the address", "Adresse anzeigen", "Mostrar la dirección", "Mostra l'indirizzo", "Adres tonen", "Mostrar a morada", "Pokaż adres"],
+    "Personne": ["Person", "Person", "Persona", "Persona", "Persoon", "Pessoa", "Osoba"],
+    "Traqueurs Wi-Fi (routeur) du téléphone": ["Phone Wi-Fi trackers (router)", "WLAN-Tracker des Telefons (Router)", "Rastreadores Wi-Fi (router) del teléfono", "Tracker Wi-Fi (router) del telefono", "Wifi-trackers (router) van de telefoon", "Rastreadores Wi-Fi (router) do telemóvel", "Trackery Wi-Fi (router) telefonu"],
+    "Batterie (vide = auto)": ["Battery (empty = auto)", "Batterie (leer = automatisch)", "Batería (vacío = auto)", "Batteria (vuoto = auto)", "Batterij (leeg = automatisch)", "Bateria (vazio = auto)", "Bateria (puste = auto)"],
+    "Adresse (vide = auto)": ["Address (empty = auto)", "Adresse (leer = automatisch)", "Dirección (vacío = auto)", "Indirizzo (vuoto = auto)", "Adres (leeg = automatisch)", "Morada (vazio = auto)", "Adres (puste = auto)"],
+    "Distance (vide = auto)": ["Distance (empty = auto)", "Entfernung (leer = automatisch)", "Distancia (vacío = auto)", "Distanza (vuoto = auto)", "Afstand (leeg = automatisch)", "Distância (vazio = auto)", "Odległość (puste = auto)"],
+    "Sens du déplacement (vide = auto)": ["Direction of travel (empty = auto)", "Bewegungsrichtung (leer = automatisch)", "Sentido del desplazamiento (vacío = auto)", "Direzione di spostamento (vuoto = auto)", "Reisrichting (leeg = automatisch)", "Sentido da deslocação (vazio = auto)", "Kierunek ruchu (puste = auto)"],
+    "Capteurs (détectés automatiquement)": ["Sensors (detected automatically)", "Sensoren (automatisch erkannt)", "Sensores (detectados automáticamente)", "Sensori (rilevati automaticamente)", "Sensoren (automatisch gedetecteerd)", "Sensores (detetados automaticamente)", "Czujniki (wykrywane automatycznie)"],
+    "+ Ajouter une personne": ["+ Add a person", "+ Person hinzufügen", "+ Añadir una persona", "+ Aggiungi una persona", "+ Persoon toevoegen", "+ Adicionar uma pessoa", "+ Dodaj osobę"],
+    "Personne {n}": ["Person {n}", "Person {n}", "Persona {n}", "Persona {n}", "Persoon {n}", "Pessoa {n}", "Osoba {n}"],
+    "HOLM – La famille": ["HOLM – The family", "HOLM – Die Familie", "HOLM – La familia", "HOLM – La famiglia", "HOLM – Het gezin", "HOLM – A família", "HOLM – Rodzina"],
+    "Présence, lieu, distance, batterie et source (GPS / Wi-Fi) de chaque membre de la famille": ["Presence, location, distance, battery and source (GPS / Wi-Fi) of each family member", "Anwesenheit, Ort, Entfernung, Akku und Quelle (GPS / WLAN) jedes Familienmitglieds", "Presencia, lugar, distancia, batería y fuente (GPS / Wi-Fi) de cada miembro de la familia", "Presenza, luogo, distanza, batteria e fonte (GPS / Wi-Fi) di ogni membro della famiglia", "Aanwezigheid, locatie, afstand, batterij en bron (GPS / wifi) van elk gezinslid", "Presença, local, distância, bateria e fonte (GPS / Wi-Fi) de cada membro da família", "Obecność, miejsce, odległość, bateria i źródło (GPS / Wi-Fi) każdego członka rodziny"]
+  };
+  let LANG = "fr", NUMLOC = "fr-FR";
+  const langOf = (hass, c) => { const l = String((c && c.language) || (hass && ((hass.locale && hass.locale.language) || hass.language)) || navigator.language || "en").toLowerCase().split(/[-_]/)[0]; return l === "fr" || HOLM_LANGS.includes(l) ? l : "en"; };
+  const setLang = (hass, c) => { LANG = langOf(hass, c); const p = hass && hass.locale && hass.locale.language; NUMLOC = !(c && c.language) && p && p.toLowerCase().startsWith(LANG) ? p : LOCALES[LANG]; return LANG; };
+  const _ = (s, v) => { let o = LANG === "fr" ? s : ((I18N[s] && I18N[s][HOLM_LANGS.indexOf(LANG)]) || s); if (v) for (const k in v) o = o.split("{" + k + "}").join(v[k]); return o; };
+  // champ « Langue » pour les éditeurs visuels (ha-form)
+  const langField = () => ({ name: "language", selector: { select: { mode: "dropdown", options: [{ value: "", label: _("Automatique (profil)") }, ...Object.entries(LANG_NAMES).map(([value, label]) => ({ value, label }))] } } });
+  // traduit les titres de sections et les libellés d'options d'un schéma ha-form (écrits en français)
+  const locSchema = (sc) => (sc || []).map((x) => { const o = { ...x }; if (o.title) o.title = _(o.title); if (o.schema) o.schema = locSchema(o.schema);
+    if (o.selector && o.selector.select && o.name !== "language") o.selector = { ...o.selector, select: { ...o.selector.select, options: (o.selector.select.options || []).map((op) => (typeof op === "string" ? op : { ...op, label: _(op.label) })) } };
+    if (o.name === "language" && o.selector && o.selector.select) o.selector = { ...o.selector, select: { ...o.selector.select, options: o.selector.select.options.map((op) => (op.value ? op : { ...op, label: _("Automatique (profil)") })) } };
+    return o; });
 // Garde la position de défilement pendant un nouveau rendu complet de la carte (iPhone / iPad : WebKit n'a pas de
 // « scroll anchoring » et la page remontait d'un coup). On fige la hauteur de la carte et on remet le défilement en place.
 const keepScroll = (host, fn) => {
@@ -32,35 +115,36 @@ const keepScroll = (host, fn) => {
     setTimeout(() => { host.style.minHeight = ""; }, 500);   // page en arrière-plan : pas d'image affichée, donc pas de requestAnimationFrame
   }
 };
-const fr = (v, d = 1) => Number(v).toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fr = (v, d = 1) => Number(v).toLocaleString(NUMLOC, { minimumFractionDigits: d, maximumFractionDigits: d });
 const PAL = ["#0abfbf", "#e05a8a", "#e3a21a", "#9b6fd6", "#4a90d9", "#1fce8a"];
 const HOME = "#1fce8a";
 const ago = (t) => {
   const s = Math.max(0, (Date.now() - t) / 1000);
-  if (s < 90) return "à l'instant";
-  if (s < 3600) return `il y a ${Math.round(s / 60)} min`;
-  if (s < 86400) return `il y a ${Math.floor(s / 3600)} h${Math.round((s % 3600) / 60) ? String(Math.round((s % 3600) / 60)).padStart(2, "0") : ""}`;
-  return `il y a ${Math.round(s / 86400)} j`;
+  if (s < 90) return _("à l'instant");
+  if (s < 3600) return _("il y a {n} min", { n: Math.round(s / 60) });
+  if (s < 86400) return _("il y a {n} h{m}", { n: Math.floor(s / 3600), m: Math.round((s % 3600) / 60) ? String(Math.round((s % 3600) / 60)).padStart(2, "0") : "" });
+  return _("il y a {n} j", { n: Math.round(s / 86400) });
 };
 const since = (t) => {
   const d = new Date(t), now = new Date();
-  const hm = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  if (d.toDateString() === now.toDateString()) return `depuis ${hm}`;
+  const hm = d.toLocaleTimeString(NUMLOC, { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === now.toDateString()) return _("depuis {t}", { t: hm });
   const y = new Date(now); y.setDate(y.getDate() - 1);
-  if (d.toDateString() === y.toDateString()) return `depuis hier ${hm}`;
-  return `depuis le ${d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
+  if (d.toDateString() === y.toDateString()) return _("depuis hier {t}", { t: hm });
+  return _("depuis le {d}", { d: d.toLocaleDateString(NUMLOC, { day: "numeric", month: "short" }) });
 };
-const DIR = { towards: ["mdi:arrow-down-bold", "se rapproche", "#1fce8a"], away_from: ["mdi:arrow-up-bold", "s'éloigne", "#e3a21a"], stationary: ["mdi:pause", "immobile", ""], arrived: ["mdi:home-import-outline", "arrivé(e)", "#1fce8a"] };
+const DIR = { towards: ["mdi:arrow-down-bold", _("se rapproche"), "#1fce8a"], away_from: ["mdi:arrow-up-bold", _("s'éloigne"), "#e3a21a"], stationary: ["mdi:pause", _("immobile"), ""], arrived: ["mdi:home-import-outline", _("arrivé(e)"), "#1fce8a"] };
 
 class HolmFamilyCard extends HTMLElement {
   setConfig(c) {
     if (!c || !Array.isArray(c.persons) || !c.persons.length) throw new Error("holm-family-card : 'persons' est requis");
-    this._c = { title: "La famille", stale_hours: 3, show_address: true, show_frame: true, ...c };
+    this._c = { stale_hours: 3, show_address: true, show_frame: true, ...c };
     this._sig = null;
     if (this._hass) this._render();
   }
   set hass(h) {
     this._hass = h;
+    if (setLang(h, this._c) !== this._lang) { this._lang = LANG; this._sig = null; }
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     const ids = this._watch();
     const sig = ids.map((i) => { const s = h.states[i]; return s ? s.state + s.last_changed : ""; }).join("|");
@@ -123,7 +207,7 @@ class HolmFamilyCard extends HTMLElement {
     const stale = via === "gps" && gpsAge > (Number(this._c.stale_hours) || 3) * 3600000;
     // position GPS trop ancienne et pas de Wi-Fi : on n'affirme plus rien, on affiche la dernière position connue
     let last = null;
-    if (stale && !wifiHome) { last = homeZ.has(state) ? "à la maison" : state === "not_home" ? "en déplacement" : state; home = false; }
+    if (stale && !wifiHome) { last = homeZ.has(state) ? _("à la maison") : state === "not_home" ? _("en déplacement") : state; home = false; }
     const trk = (s.attributes.device_trackers || []).map((t) => h.states[t]).filter(Boolean);
     const offline = trk.length && trk.every((t) => t.state === "unavailable" || t.state === "unknown");
     const unknown = !!last || (!home && (state === "unknown" || state === "unavailable"));
@@ -131,7 +215,7 @@ class HolmFamilyCard extends HTMLElement {
     const distU = a.distance ? h.states[a.distance]?.attributes.unit_of_measurement || "km" : "";
     return {
       p, s, color, home, unknown, stale, via, gpsAge, wifiHome, last, offline,
-      zone: home ? "À la maison" : state === "not_home" ? "En déplacement" : unknown ? "Position inconnue" : state,
+      zone: home ? _("À la maison") : state === "not_home" ? _("En déplacement") : unknown ? _("Position inconnue") : state,
       since: new Date(wifiHome && !homeZ.has(s.state) ? h.states[(p.wifi || []).find((w) => h.states[w]?.state === "home")].last_changed : s.last_changed).getTime(),
       battery: num(a.battery), batteryId: a.battery,
       address: a.address ? h.states[a.address]?.state : null,
@@ -144,30 +228,31 @@ class HolmFamilyCard extends HTMLElement {
   }
   _renderNow() {
     if (!this.shadowRoot || !this._c || !this._hass) return;
+    setLang(this._hass, this._c);
     const c = this._c, homeZ = this._homeZones();
     const P = c.persons.map((p, i) => this._person(p, i, homeZ));
     const nHome = P.filter((x) => x.home).length, nOut = P.filter((x) => !x.home && !x.unknown && !x.missing).length;
     const row = (x) => {
-      if (x.missing) return `<div class="row"><div class="av" style="--c:#888"><ha-icon icon="mdi:account-question"></ha-icon></div><div class="tx"><div class="nm">${x.p.entity}</div><div class="st">Entité introuvable</div></div></div>`;
+      if (x.missing) return `<div class="row"><div class="av" style="--c:#888"><ha-icon icon="mdi:account-question"></ha-icon></div><div class="tx"><div class="nm">${x.p.entity}</div><div class="st">${_("Entité introuvable")}</div></div></div>`;
       const ring = x.home ? HOME : x.unknown ? "rgba(127,127,127,.5)" : x.color;
       const initials = (x.name || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
       const badge = x.home ? (x.via === "wifi" ? "mdi:wifi" : "mdi:home") : x.unknown ? "mdi:help" : x.dir && DIR[x.dir] && x.dir !== "stationary" ? DIR[x.dir][0] : "mdi:map-marker";
       const chips = [];
       if (!x.home && x.dist != null && x.dist > 0) chips.push(`<span class="ch"><ha-icon icon="mdi:map-marker-distance"></ha-icon>${fr(x.dist, x.dist < 10 ? 1 : 0)} ${x.distU}</span>`);
-      if (!x.home && x.dir && DIR[x.dir] && x.dir !== "stationary") chips.push(`<span class="ch" style="--k:${DIR[x.dir][2]}"><ha-icon icon="${DIR[x.dir][0]}"></ha-icon>${DIR[x.dir][1]}</span>`);
+      if (!x.home && x.dir && DIR[x.dir] && x.dir !== "stationary") chips.push(`<span class="ch" style="--k:${DIR[x.dir][2]}"><ha-icon icon="${DIR[x.dir][0]}"></ha-icon>${_(DIR[x.dir][1])}</span>`);
       if (x.battery != null) {
         const b = x.battery, ic = b > 90 ? "mdi:battery" : b < 10 ? "mdi:battery-outline" : `mdi:battery-${Math.round(b / 10) * 10}`;
         chips.push(`<span class="ch bat ${b <= 20 ? "low" : ""}" data-e="${x.batteryId}"><ha-icon icon="${ic}"></ha-icon>${fr(b, 0)} %</span>`);
       }
-      const srcTxt = x.via === "wifi" ? "Wi-Fi de la maison" : x.via === "gps" ? `GPS ${ago(Date.now() - x.gpsAge)}` : "";
+      const srcTxt = x.via === "wifi" ? _("Wi-Fi de la maison") : x.via === "gps" ? _("GPS {x}", { x: ago(Date.now() - x.gpsAge) }) : "";
       const addr = c.show_address !== false && x.address && !x.home && x.address !== "unknown" && x.address !== "unavailable" ? x.address : "";
       return `<div class="row ${x.home ? "home" : ""} ${x.unknown ? "unk" : ""}" data-e="${x.p.entity}">
         <div class="av" style="--c:${ring}">${x.pic ? `<img src="${x.pic}" alt="">` : `<span>${initials}</span>`}<i class="bd" style="--c:${ring}"><ha-icon icon="${badge}"></ha-icon></i></div>
         <div class="tx"><div class="nm">${x.name}</div>
           <div class="st"><b style="color:${x.home ? HOME : x.unknown ? "var(--secondary-text-color)" : "var(--primary-text-color)"}">${x.zone}</b> <span>${x.unknown ? "" : since(x.since)}</span></div>
           ${addr ? `<div class="ad"><ha-icon icon="mdi:map-marker-outline"></ha-icon>${addr}</div>` : ""}
-          ${x.last ? `<div class="wn"><ha-icon icon="mdi:clock-alert-outline"></ha-icon>Dernière position : ${x.last}, ${ago(Date.now() - x.gpsAge)} — suivi coupé</div>`
-            : x.offline && x.unknown ? `<div class="wn"><ha-icon icon="mdi:cellphone-off"></ha-icon>L'application Home Assistant du téléphone ne répond plus</div>`
+          ${x.last ? `<div class="wn"><ha-icon icon="mdi:clock-alert-outline"></ha-icon>${_("Dernière position : {p}, {a} — suivi coupé", { p: x.last, a: ago(Date.now() - x.gpsAge) })}</div>`
+            : x.offline && x.unknown ? `<div class="wn"><ha-icon icon="mdi:cellphone-off"></ha-icon>${_("L'application Home Assistant du téléphone ne répond plus")}</div>`
             : srcTxt ? `<div class="sr">${srcTxt}</div>` : ""}
         </div>
         <div class="chs">${chips.join("")}</div></div>`;
@@ -212,8 +297,8 @@ class HolmFamilyCard extends HTMLElement {
       @container (max-width: 420px) { .row { grid-template-columns:auto 1fr; } .chs { grid-column:2; justify-content:flex-start; max-width:none; } }
     </style>
     <ha-card class="${c.show_frame === false ? "noframe" : ""}">
-      <div class="hd"><div class="tt">${c.title || ""}</div>
-        <div class="sm"><span><i style="background:${HOME}"></i><b>${nHome}</b> à la maison</span><span><i style="background:${PAL[0]}"></i><b>${nOut}</b> dehors</span></div></div>
+      <div class="hd"><div class="tt">${c.title === undefined ? _("La famille") : _(c.title)}</div>
+        <div class="sm"><span><i style="background:${HOME}"></i>${_("{n} à la maison", { n: `<b>${nHome}</b>` })}</span><span><i style="background:${PAL[0]}"></i>${_("{n} dehors", { n: `<b>${nOut}</b>` })}</span></div></div>
       ${P.map(row).join("")}
     </ha-card>`;
     this.shadowRoot.querySelectorAll("[data-e]").forEach((el) => el.addEventListener("click", (ev) => {
@@ -222,22 +307,22 @@ class HolmFamilyCard extends HTMLElement {
     }));
   }
   static getConfigElement() { return document.createElement("holm-family-card-editor"); }
-  static getStubConfig(h) { return { title: "La famille", persons: Object.keys(h?.states || {}).filter((e) => e.startsWith("person.")).slice(0, 4).map((entity) => ({ entity })) }; }
+  static getStubConfig(h) { setLang(h); return { title: _("La famille"), persons: Object.keys(h?.states || {}).filter((e) => e.startsWith("person.")).slice(0, 4).map((entity) => ({ entity })) }; }
   getCardSize() { return 1 + this._c.persons.length * 1.5; }
   getGridOptions() { return { columns: 12, rows: "auto", min_columns: 4 }; }
 }
 
-const L = { title: "Titre", stale_hours: "Position trop ancienne après (heures)", show_address: "Afficher l'adresse", show_frame: "Afficher le cadre de la carte",
-  entity: "Personne", name: "Nom affiché", color: "Couleur", wifi: "Traqueurs Wi-Fi (routeur) du téléphone", battery: "Batterie (vide = auto)", address: "Adresse (vide = auto)",
-  distance: "Distance (vide = auto)", direction: "Sens du déplacement (vide = auto)" };
+const L = { language: _("Langue"), title: _("Titre"), stale_hours: _("Position trop ancienne après (heures)"), show_address: _("Afficher l'adresse"), show_frame: _("Afficher le cadre de la carte"),
+  entity: _("Personne"), name: _("Nom affiché"), color: _("Couleur"), wifi: _("Traqueurs Wi-Fi (routeur) du téléphone"), battery: _("Batterie (vide = auto)"), address: _("Adresse (vide = auto)"),
+  distance: _("Distance (vide = auto)"), direction: _("Sens du déplacement (vide = auto)") };
 const hex2rgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return undefined; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 const rgb2hex = (a) => Array.isArray(a) ? "#" + a.map((v) => Number(v).toString(16).padStart(2, "0")).join("") : a;
 const GEN = [ { name: "title", selector: { text: {} } }, { type: "grid", name: "", schema: [
-  { name: "stale_hours", selector: { number: { min: 1, max: 48, mode: "box" } } }, { name: "show_address", selector: { boolean: {} } }, { name: "show_frame", selector: { boolean: {} } } ] } ];
+  { name: "stale_hours", selector: { number: { min: 1, max: 48, mode: "box" } } }, { name: "show_address", selector: { boolean: {} } }, { name: "show_frame", selector: { boolean: {} } } ] }, langField() ];
 const PER = [
   { type: "grid", name: "", schema: [ { name: "entity", required: true, selector: { entity: { domain: ["person"] } } }, { name: "name", selector: { text: {} } } ] },
   { name: "wifi", selector: { entity: { multiple: true, domain: ["device_tracker"] } } },
-  { type: "expandable", title: "Capteurs (détectés automatiquement)", flatten: true, schema: [ { type: "grid", name: "", schema: [
+  { type: "expandable", title: _("Capteurs (détectés automatiquement)"), flatten: true, schema: [ { type: "grid", name: "", schema: [
     { name: "battery", selector: { entity: { domain: ["sensor"] } } }, { name: "address", selector: { entity: { domain: ["sensor"] } } },
     { name: "distance", selector: { entity: { domain: ["sensor"] } } }, { name: "direction", selector: { entity: { domain: ["sensor"] } } },
     { name: "color", selector: { color_rgb: {} } } ] } ] },
@@ -246,20 +331,20 @@ class HolmFamilyCardEditor extends HTMLElement {
   setConfig(c) { const j = JSON.stringify(c); this._config = JSON.parse(j); if (j === this._last && this._built) return; this._build(); }
   set hass(h) { this._hass = h; if (!this._built) this._build(); else this.querySelectorAll("ha-form").forEach((f) => (f.hass = h)); }
   _emit() { this._last = JSON.stringify(this._config); this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: JSON.parse(this._last) }, bubbles: true, composed: true })); }
-  _form(schema, data, cb) { const f = document.createElement("ha-form"); f.hass = this._hass; f.schema = schema; f.data = data; f.computeLabel = (s) => L[s.name] || s.name;
+  _form(schema, data, cb) { const f = document.createElement("ha-form"); f.hass = this._hass; f.schema = locSchema(schema); f.data = data; f.computeLabel = (s) => (L[s.name] ? _(L[s.name]) : s.name);
     f.addEventListener("value-changed", (ev) => { ev.stopPropagation(); cb(ev.detail.value); }); return f; }
   _build() {
     if (!this._hass || !this._config) return;
-    this._built = true; const c = this._config; c.persons = c.persons || [];
+    this._built = true; const c = this._config; c.persons = c.persons || []; setLang(this._hass, c);
     this.innerHTML = `<style>.it{border:1px solid var(--divider-color);border-radius:12px;padding:8px 12px 4px;margin:10px 0}.ih{display:flex;justify-content:space-between;font-weight:600;margin-bottom:4px}
       .ih span{display:flex;gap:4px} button{cursor:pointer;background:none;border:1px solid var(--divider-color);color:var(--primary-text-color);border-radius:8px;padding:4px 8px}.add{width:100%;padding:8px}</style>
-      <div class="gen"></div><div class="items"></div><button class="add">+ Ajouter une personne</button>`;
-    this.querySelector(".gen").appendChild(this._form(GEN, { stale_hours: 3, show_address: true, show_frame: true, ...c }, (v) => {
-      Object.assign(this._config, v); if (v.stale_hours === 3) delete this._config.stale_hours; if (v.show_address !== false) delete this._config.show_address; if (v.show_frame !== false) delete this._config.show_frame; this._emit(); }));
+      <div class="gen"></div><div class="items"></div><button class="add">${_("+ Ajouter une personne")}</button>`;
+    this.querySelector(".gen").appendChild(this._form(GEN, { stale_hours: 3, show_address: true, show_frame: true, language: "", ...c }, (v) => {
+      const relang = (v.language || "") !== (this._config.language || ""); Object.assign(this._config, v); if (!v.language) delete this._config.language; if (relang) setTimeout(() => this._build()); if (v.stale_hours === 3) delete this._config.stale_hours; if (v.show_address !== false) delete this._config.show_address; if (v.show_frame !== false) delete this._config.show_frame; this._emit(); }));
     const box = this.querySelector(".items");
     c.persons.forEach((p, i) => {
       const w = document.createElement("div"); w.className = "it";
-      w.innerHTML = `<div class="ih">${p.name || p.entity || "Personne " + (i + 1)}<span><button data-a="up">▲</button><button data-a="down">▼</button><button data-a="del">✕</button></span></div>`;
+      w.innerHTML = `<div class="ih">${p.name || p.entity || _("Personne {n}", { n: i + 1 })}<span><button data-a="up">▲</button><button data-a="down">▼</button><button data-a="del">✕</button></span></div>`;
       w.appendChild(this._form(PER, { ...p, color: hex2rgb(p.color) }, (v) => {
         const o = {}; for (const [k, val] of Object.entries(v)) { if (val === "" || val == null || (Array.isArray(val) && !val.length)) continue; o[k] = k === "color" ? rgb2hex(val) : val; }
         this._config.persons[i] = o; this._emit(); }));
@@ -274,7 +359,8 @@ class HolmFamilyCardEditor extends HTMLElement {
 if (!customElements.get("holm-family-card-editor")) customElements.define("holm-family-card-editor", HolmFamilyCardEditor);
 if (!customElements.get("holm-family-card")) customElements.define("holm-family-card", HolmFamilyCard);
 window.customCards = window.customCards || [];
-window.customCards.push({ type: "holm-family-card", name: "HOLM – La famille", description: "Présence, lieu, distance, batterie et source (GPS / Wi-Fi) de chaque membre de la famille", preview: false });
+setLang(document.querySelector("home-assistant")?.hass);
+window.customCards.push({ type: "holm-family-card", name: _("HOLM – La famille"), description: _("Présence, lieu, distance, batterie et source (GPS / Wi-Fi) de chaque membre de la famille"), preview: false });
 })();
 
-console.info("%c HOLM-FAMILY %c 1.0.1 ", "background:#1fce8a;color:#111;border-radius:3px 0 0 3px", "background:#123;color:#fff;border-radius:0 3px 3px 0");
+console.info("%c HOLM-FAMILY %c 1.1.0 ", "background:#1fce8a;color:#111;border-radius:3px 0 0 3px", "background:#123;color:#fff;border-radius:0 3px 3px 0");

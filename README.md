@@ -4,6 +4,8 @@
 ![Version](https://img.shields.io/github/v/release/kaaribou/holm-family-card)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-03a9f4)
 
+🇫🇷 Français · [🇬🇧 English](README.en.md)
+
 **Qui est où, en un coup d'œil : à la maison, en route, à l'école… avec la distance, le sens du trajet et la batterie du téléphone.**
 
 HOLM Family Card affiche les membres de la famille à partir de leurs entités **`person`**. Pour chacun : un avatar entouré de sa couleur, le lieu et depuis quand, l'adresse, la source de la position (GPS ou Wi-Fi de la maison) et des pastilles distance / direction / batterie.
@@ -21,6 +23,11 @@ HOLM Family Card affiche les membres de la famille à partir de leurs entités *
 - 👆 Un toucher ouvre la fiche de la personne (ou de la batterie).
 
 ![La famille](docs/images/famille.png)
+
+
+### 🆕 Nouveautés de la 1.1.0
+
+- 🌍 **La carte parle 8 langues** : français, anglais, allemand, espagnol, italien, néerlandais, portugais et polonais, éditeur compris. Elle suit la langue de votre profil Home Assistant (anglais si votre langue n'est pas traduite) ; l'option `language` permet d'en imposer une.
 
 ---
 
@@ -58,6 +65,7 @@ persons:
 
 | Option | Description | Par défaut |
 |---|---|---|
+| `language` | Langue : `fr`, `en`, `de`, `es`, `it`, `nl`, `pt`, `pl` | celle du profil |
 | `title` | Titre | `La famille` |
 | `persons` | Liste des personnes (**obligatoire**) | — |
 | `stale_hours` | Au-delà de ce délai (heures), la position GPS est considérée comme trop ancienne | `3` |
