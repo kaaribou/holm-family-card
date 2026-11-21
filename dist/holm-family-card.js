@@ -1,4 +1,4 @@
-/* holm-family-card — https://github.com/kaaribou/holm-family-card — licence MIT — v1.1.0 */
+/* holm-family-card — https://github.com/kaaribou/holm-family-card — licence MIT — v1.1.1 */
 // holm-family-card — qui est où : présence, lieu, distance, batterie, source (GPS / Wi-Fi)
 // Tout est détecté à partir des entités « person » : traqueurs, batterie et adresse du téléphone,
 // capteurs de l'intégration Proximité (distance, sens du déplacement).
@@ -118,6 +118,11 @@ const keepScroll = (host, fn) => {
 const fr = (v, d = 1) => Number(v).toLocaleString(NUMLOC, { minimumFractionDigits: d, maximumFractionDigits: d });
 const PAL = ["#0abfbf", "#e05a8a", "#e3a21a", "#9b6fd6", "#4a90d9", "#1fce8a"];
 const HOME = "#1fce8a";
+// Échappement HTML de toute valeur venant d'une entité ou de la configuration avant insertion dans un gabarit.
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+// Couleur de la configuration : #hex, rgb()/rgba()/hsl()/hsla(), var(--…) ou nom CSS ; sinon la couleur par défaut.
+const COLOR_RE = /^(#[0-9a-f]{3,8}|(rgba?|hsla?)\(\s*[\d.\s,%/+-]+\)|var\(--[\w-]+(\s*,\s*(#[0-9a-f]{3,8}|[a-z]+))?\)|[a-z]+)$/i;
+const cssColor = (v, def) => (typeof v === "string" && COLOR_RE.test(v.trim()) ? v.trim() : def);
 const ago = (t) => {
   const s = Math.max(0, (Date.now() - t) / 1000);
   if (s < 90) return _("à l'instant");
@@ -194,7 +199,7 @@ class HolmFamilyCard extends HTMLElement {
   }
   _person(p, i, homeZ) {
     const h = this._hass, s = h.states[p.entity];
-    const color = p.color || PAL[i % PAL.length];
+    const color = cssColor(p.color, PAL[i % PAL.length]);
     if (!s) return { p, color, missing: true };
     const a = this._auto(p);
     const src = h.states[s.attributes.source];
@@ -233,25 +238,25 @@ class HolmFamilyCard extends HTMLElement {
     const P = c.persons.map((p, i) => this._person(p, i, homeZ));
     const nHome = P.filter((x) => x.home).length, nOut = P.filter((x) => !x.home && !x.unknown && !x.missing).length;
     const row = (x) => {
-      if (x.missing) return `<div class="row"><div class="av" style="--c:#888"><ha-icon icon="mdi:account-question"></ha-icon></div><div class="tx"><div class="nm">${x.p.entity}</div><div class="st">${_("Entité introuvable")}</div></div></div>`;
+      if (x.missing) return `<div class="row"><div class="av" style="--c:#888"><ha-icon icon="mdi:account-question"></ha-icon></div><div class="tx"><div class="nm">${esc(x.p.entity)}</div><div class="st">${_("Entité introuvable")}</div></div></div>`;
       const ring = x.home ? HOME : x.unknown ? "rgba(127,127,127,.5)" : x.color;
       const initials = (x.name || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
       const badge = x.home ? (x.via === "wifi" ? "mdi:wifi" : "mdi:home") : x.unknown ? "mdi:help" : x.dir && DIR[x.dir] && x.dir !== "stationary" ? DIR[x.dir][0] : "mdi:map-marker";
       const chips = [];
-      if (!x.home && x.dist != null && x.dist > 0) chips.push(`<span class="ch"><ha-icon icon="mdi:map-marker-distance"></ha-icon>${fr(x.dist, x.dist < 10 ? 1 : 0)} ${x.distU}</span>`);
+      if (!x.home && x.dist != null && x.dist > 0) chips.push(`<span class="ch"><ha-icon icon="mdi:map-marker-distance"></ha-icon>${fr(x.dist, x.dist < 10 ? 1 : 0)} ${esc(x.distU)}</span>`);
       if (!x.home && x.dir && DIR[x.dir] && x.dir !== "stationary") chips.push(`<span class="ch" style="--k:${DIR[x.dir][2]}"><ha-icon icon="${DIR[x.dir][0]}"></ha-icon>${_(DIR[x.dir][1])}</span>`);
       if (x.battery != null) {
         const b = x.battery, ic = b > 90 ? "mdi:battery" : b < 10 ? "mdi:battery-outline" : `mdi:battery-${Math.round(b / 10) * 10}`;
-        chips.push(`<span class="ch bat ${b <= 20 ? "low" : ""}" data-e="${x.batteryId}"><ha-icon icon="${ic}"></ha-icon>${fr(b, 0)} %</span>`);
+        chips.push(`<span class="ch bat ${b <= 20 ? "low" : ""}" data-e="${esc(x.batteryId)}"><ha-icon icon="${ic}"></ha-icon>${fr(b, 0)} %</span>`);
       }
       const srcTxt = x.via === "wifi" ? _("Wi-Fi de la maison") : x.via === "gps" ? _("GPS {x}", { x: ago(Date.now() - x.gpsAge) }) : "";
       const addr = c.show_address !== false && x.address && !x.home && x.address !== "unknown" && x.address !== "unavailable" ? x.address : "";
-      return `<div class="row ${x.home ? "home" : ""} ${x.unknown ? "unk" : ""}" data-e="${x.p.entity}">
-        <div class="av" style="--c:${ring}">${x.pic ? `<img src="${x.pic}" alt="">` : `<span>${initials}</span>`}<i class="bd" style="--c:${ring}"><ha-icon icon="${badge}"></ha-icon></i></div>
-        <div class="tx"><div class="nm">${x.name}</div>
-          <div class="st"><b style="color:${x.home ? HOME : x.unknown ? "var(--secondary-text-color)" : "var(--primary-text-color)"}">${x.zone}</b> <span>${x.unknown ? "" : since(x.since)}</span></div>
-          ${addr ? `<div class="ad"><ha-icon icon="mdi:map-marker-outline"></ha-icon>${addr}</div>` : ""}
-          ${x.last ? `<div class="wn"><ha-icon icon="mdi:clock-alert-outline"></ha-icon>${_("Dernière position : {p}, {a} — suivi coupé", { p: x.last, a: ago(Date.now() - x.gpsAge) })}</div>`
+      return `<div class="row ${x.home ? "home" : ""} ${x.unknown ? "unk" : ""}" data-e="${esc(x.p.entity)}">
+        <div class="av" style="--c:${esc(ring)}">${x.pic ? `<img src="${esc(x.pic)}" alt="">` : `<span>${esc(initials)}</span>`}<i class="bd" style="--c:${esc(ring)}"><ha-icon icon="${badge}"></ha-icon></i></div>
+        <div class="tx"><div class="nm">${esc(x.name)}</div>
+          <div class="st"><b style="color:${x.home ? HOME : x.unknown ? "var(--secondary-text-color)" : "var(--primary-text-color)"}">${esc(x.zone)}</b> <span>${x.unknown ? "" : since(x.since)}</span></div>
+          ${addr ? `<div class="ad"><ha-icon icon="mdi:map-marker-outline"></ha-icon>${esc(addr)}</div>` : ""}
+          ${x.last ? `<div class="wn"><ha-icon icon="mdi:clock-alert-outline"></ha-icon>${_("Dernière position : {p}, {a} — suivi coupé", { p: esc(x.last), a: ago(Date.now() - x.gpsAge) })}</div>`
             : x.offline && x.unknown ? `<div class="wn"><ha-icon icon="mdi:cellphone-off"></ha-icon>${_("L'application Home Assistant du téléphone ne répond plus")}</div>`
             : srcTxt ? `<div class="sr">${srcTxt}</div>` : ""}
         </div>
@@ -297,7 +302,7 @@ class HolmFamilyCard extends HTMLElement {
       @container (max-width: 420px) { .row { grid-template-columns:auto 1fr; } .chs { grid-column:2; justify-content:flex-start; max-width:none; } }
     </style>
     <ha-card class="${c.show_frame === false ? "noframe" : ""}">
-      <div class="hd"><div class="tt">${c.title === undefined ? _("La famille") : _(c.title)}</div>
+      <div class="hd"><div class="tt">${esc(c.title === undefined ? _("La famille") : _(c.title))}</div>
         <div class="sm"><span><i style="background:${HOME}"></i>${_("{n} à la maison", { n: `<b>${nHome}</b>` })}</span><span><i style="background:${PAL[0]}"></i>${_("{n} dehors", { n: `<b>${nOut}</b>` })}</span></div></div>
       ${P.map(row).join("")}
     </ha-card>`;
@@ -344,7 +349,7 @@ class HolmFamilyCardEditor extends HTMLElement {
     const box = this.querySelector(".items");
     c.persons.forEach((p, i) => {
       const w = document.createElement("div"); w.className = "it";
-      w.innerHTML = `<div class="ih">${p.name || p.entity || _("Personne {n}", { n: i + 1 })}<span><button data-a="up">▲</button><button data-a="down">▼</button><button data-a="del">✕</button></span></div>`;
+      w.innerHTML = `<div class="ih">${esc(p.name || p.entity || _("Personne {n}", { n: i + 1 }))}<span><button data-a="up">▲</button><button data-a="down">▼</button><button data-a="del">✕</button></span></div>`;
       w.appendChild(this._form(PER, { ...p, color: hex2rgb(p.color) }, (v) => {
         const o = {}; for (const [k, val] of Object.entries(v)) { if (val === "" || val == null || (Array.isArray(val) && !val.length)) continue; o[k] = k === "color" ? rgb2hex(val) : val; }
         this._config.persons[i] = o; this._emit(); }));
@@ -363,4 +368,4 @@ setLang(document.querySelector("home-assistant")?.hass);
 window.customCards.push({ type: "holm-family-card", name: _("HOLM – La famille"), description: _("Présence, lieu, distance, batterie et source (GPS / Wi-Fi) de chaque membre de la famille"), preview: false });
 })();
 
-console.info("%c HOLM-FAMILY %c 1.1.0 ", "background:#1fce8a;color:#111;border-radius:3px 0 0 3px", "background:#123;color:#fff;border-radius:0 3px 3px 0");
+console.info("%c HOLM-FAMILY %c 1.1.1 ", "background:#1fce8a;color:#111;border-radius:3px 0 0 3px", "background:#123;color:#fff;border-radius:0 3px 3px 0");

@@ -25,7 +25,11 @@ HOLM Family Card affiche les membres de la famille à partir de leurs entités *
 ![La famille](docs/images/famille.png)
 
 
-### 🆕 Nouveautés de la 1.1.0
+### 🆕 Nouveautés de la 1.1.1
+
+- 🔒 **Sécurité** : les noms des personnes, des zones, l'adresse du capteur de localisation, la photo, l'unité de distance, le titre et les entités sont maintenant échappés avant l'affichage, dans la carte comme dans l'éditeur. Une valeur contenant `<` ou `"` s'affiche telle quelle et ne peut plus exécuter de code. La couleur `color` de chaque personne est aussi vérifiée.
+
+### Nouveautés de la 1.1.0
 
 - 🌍 **La carte parle 8 langues** : français, anglais, allemand, espagnol, italien, néerlandais, portugais et polonais, éditeur compris. Elle suit la langue de votre profil Home Assistant (anglais si votre langue n'est pas traduite) ; l'option `language` permet d'en imposer une.
 
@@ -35,10 +39,11 @@ HOLM Family Card affiche les membres de la famille à partir de leurs entités *
 
 ### Avec HACS (recommandé)
 
-1. HACS → menu ⋮ → **Dépôts personnalisés**.
-2. Ajoutez `https://github.com/kaaribou/holm-family-card`, catégorie **Tableau de bord** (*Dashboard / Plugin*).
-3. Recherchez la carte → **Télécharger**.
-4. Rechargez la page (Ctrl + F5).
+1. Ouvrez **HACS** et recherchez **HOLM Family Card**.
+2. Ouvrez la carte → **Télécharger**.
+3. Rechargez la page (Ctrl + F5).
+
+> Si la carte n'apparaît pas encore dans la recherche : HACS → menu ⋮ → **Dépôts personnalisés**, ajoutez `https://github.com/kaaribou/holm-family-card`, catégorie **Tableau de bord** (*Dashboard / Plugin*), puis reprenez à l'étape 1.
 
 ### Manuellement
 
@@ -79,7 +84,7 @@ Chaque personne accepte :
 |---|---|
 | `entity` | Entité `person` (**obligatoire**) |
 | `name` | Nom affiché |
-| `color` | Couleur de l'anneau (sinon une couleur de la palette) |
+| `color` | Couleur de l'anneau (sinon une couleur de la palette) : `#e05a8a`, `rgb(…)`, `hsl(…)`, `var(--ma-variable)` ou un nom de couleur ; une autre valeur est ignorée |
 | `wifi` | Traqueurs Wi-Fi (routeur) du téléphone |
 | `battery`, `address`, `distance`, `direction` | Capteurs à utiliser si la détection automatique ne les trouve pas |
 

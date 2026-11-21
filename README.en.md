@@ -27,7 +27,11 @@ HOLM Family Card shows family members from their **`person`** entities. For each
 
 *Screenshot in French — the card follows the language of your Home Assistant profile.*
 
-### 🆕 What's new in 1.1.0
+### 🆕 What's new in 1.1.1
+
+- 🔒 **Security**: person names, zone names, the address from the location sensor, the picture, the distance unit, the title and entity ids are now escaped before being displayed, in the card and in the editor. A value containing `<` or `"` is shown as is and can no longer run code. Each person's `color` is validated too.
+
+### What's new in 1.1.0
 
 - 🌍 **The card speaks 8 languages**: English, French, German, Spanish, Italian, Dutch, Portuguese and Polish, editor included. It follows the language of your Home Assistant profile (English if your language isn't translated yet); the `language` option lets you force one.
 
@@ -37,10 +41,11 @@ HOLM Family Card shows family members from their **`person`** entities. For each
 
 ### With HACS (recommended)
 
-1. HACS → ⋮ menu → **Custom repositories**.
-2. Add `https://github.com/kaaribou/holm-family-card`, category **Dashboard** (*Plugin*).
-3. Search for the card → **Download**.
-4. Reload the page (Ctrl + F5).
+1. Open **HACS** and search for **HOLM Family Card**.
+2. Open the card → **Download**.
+3. Reload the page (Ctrl + F5).
+
+> If the card does not show up in the search yet: HACS → ⋮ menu → **Custom repositories**, add `https://github.com/kaaribou/holm-family-card`, category **Dashboard** (*Plugin*), then start again at step 1.
 
 ### Manually
 
@@ -81,7 +86,7 @@ Each person accepts:
 |---|---|
 | `entity` | `person` entity (**required**) |
 | `name` | Displayed name |
-| `color` | Ring colour (otherwise a palette colour) |
+| `color` | Ring colour (otherwise a palette colour): `#e05a8a`, `rgb(…)`, `hsl(…)`, `var(--my-variable)` or a colour name; any other value is ignored |
 | `wifi` | The phone's Wi-Fi (router) trackers |
 | `battery`, `address`, `distance`, `direction` | Sensors to use if automatic detection doesn't find them |
 
